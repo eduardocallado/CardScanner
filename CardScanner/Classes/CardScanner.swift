@@ -9,10 +9,12 @@
 import AVFoundation
 import CoreImage
 import UIKit
+
+#if canImport(Vision)
 import Vision
 
 @available(iOS 13.0, *)
-public class CardScanner: UIViewController {
+public class CardScannerViewController: UIViewController {
 	// MARK: - Private Properties
 	
 	private let captureSession = AVCaptureSession()
@@ -36,6 +38,7 @@ public class CardScanner: UIViewController {
 	// MARK: - Public Properties
 	
 	public var labelCardNumber: UILabel?
+	public var labelCardName: UILabel?
 	public var labelCardDate: UILabel?
 	public var labelCardCVV: UILabel?
 	public var labelHintBottom: UILabel?
@@ -50,17 +53,17 @@ public class CardScanner: UIViewController {
 	
 	// MARK: - Instance dependencies
 	
-	private var resultsHandler: (_ number: String?, _ date: String?, _ cvv: String?) -> Void?
+	private var resultsHandler: (_ number: String?, _ name: String?, _ date: String?, _ cvv: String?) -> Void?
 	
 	// MARK: - Initializers
 	
-	init(resultsHandler: @escaping (_ number: String?, _ date: String?, _ cvv: String?) -> Void) {
+	init(resultsHandler: @escaping (_ number: String?, _ name: String?, _ date: String?, _ cvv: String?) -> Void) {
 		self.resultsHandler = resultsHandler
 		super.init(nibName: nil, bundle: nil)
 	}
 	
-	public class func getScanner(resultsHandler: @escaping (_ number: String?, _ date: String?, _ cvv: String?) -> Void) -> UINavigationController {
-		let viewScanner = CardScanner(resultsHandler: resultsHandler)
+	public class func getScanner(resultsHandler: @escaping (_ number: String?, _ name: String?, _ date: String?, _ cvv: String?) -> Void) -> UINavigationController {
+		let viewScanner = CardScannerViewController(resultsHandler: resultsHandler)
 		let navigation = UINavigationController(rootViewController: viewScanner)
 		return navigation
 	}
@@ -79,6 +82,7 @@ public class CardScanner: UIViewController {
 	
 	override public func viewDidLoad() {
 		super.viewDidLoad()
+		
 		setupCaptureSession()
 		captureSession.startRunning()
 		title = viewTitle
@@ -90,6 +94,7 @@ public class CardScanner: UIViewController {
 	
 	override public func viewDidLayoutSubviews() {
 		super.viewDidLayoutSubviews()
+		
 		previewLayer.frame = view.bounds
 	}
 	
@@ -124,12 +129,12 @@ public class CardScanner: UIViewController {
 	}
 	
 	private func addGuideView() {
-		let widht = UIScreen.main.bounds.width - (UIScreen.main.bounds.width * 0.2)
-		let height = widht - (widht * 0.45)
-		let viewX = (UIScreen.main.bounds.width / 2) - (widht / 2)
+		let width = UIScreen.main.bounds.width - (UIScreen.main.bounds.width * 0.2)
+		let height = width - (width * 0.45)
+		let viewX = (UIScreen.main.bounds.width / 2) - (width / 2)
 		let viewY = (UIScreen.main.bounds.height / 2) - (height / 2) - 100
 		
-		viewGuide = PartialTransparentView(rectsArray: [CGRect(x: viewX, y: viewY, width: widht, height: height)])
+		viewGuide = PartialTransparentView(rectsArray: [CGRect(x: viewX, y: viewY, width: width, height: height)])
 		
 		view.addSubview(viewGuide)
 		viewGuide.translatesAutoresizingMaskIntoConstraints = false
@@ -142,7 +147,7 @@ public class CardScanner: UIViewController {
 		let bottomY = (UIScreen.main.bounds.height / 2) + (height / 2) - 100
 		
 		let labelCardNumberX = viewX + 20
-		let labelCardNumberY = bottomY - 50
+		let labelCardNumberY = bottomY - 65
 		labelCardNumber = UILabel(frame: CGRect(x: labelCardNumberX, y: labelCardNumberY, width: 100, height: 30))
 		view.addSubview(labelCardNumber!)
 		labelCardNumber?.translatesAutoresizingMaskIntoConstraints = false
@@ -153,8 +158,20 @@ public class CardScanner: UIViewController {
 		labelCardNumber?.isUserInteractionEnabled = true
 		labelCardNumber?.textColor = .white
 		
+		let labelCardNameX = viewX + 20
+		let labelCardNameY = bottomY - 40
+		labelCardName = UILabel(frame: CGRect(x: labelCardNameX, y: labelCardNameY, width: 100, height: 30))
+		view.addSubview(labelCardName!)
+		labelCardName?.translatesAutoresizingMaskIntoConstraints = false
+		labelCardName?.leftAnchor.constraint(equalTo: view.leftAnchor, constant: labelCardNameX).isActive = true
+		labelCardName?.topAnchor.constraint(equalTo: view.topAnchor, constant: labelCardNameY).isActive = true
+		labelCardName?.font = UIFont.systemFont(ofSize: 17, weight: .bold)
+		labelCardName?.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(clearCardName)))
+		labelCardName?.isUserInteractionEnabled = true
+		labelCardName?.textColor = .white
+		
 		let labelCardDateX = viewX + 20
-		let labelCardDateY = bottomY - 90
+		let labelCardDateY = bottomY - 110
 		labelCardDate = UILabel(frame: CGRect(x: labelCardDateX, y: labelCardDateY, width: 100, height: 30))
 		view.addSubview(labelCardDate!)
 		labelCardDate?.translatesAutoresizingMaskIntoConstraints = false
@@ -166,7 +183,7 @@ public class CardScanner: UIViewController {
 		labelCardDate?.textColor = .white
 		
 		let labelCardCVVX = viewX + 200
-		let labelCardCVVY = bottomY - 90
+		let labelCardCVVY = bottomY - 110
 		labelCardCVV = UILabel(frame: CGRect(x: labelCardCVVX, y: labelCardCVVY, width: 100, height: 30))
 		view.addSubview(labelCardCVV!)
 		labelCardCVV?.translatesAutoresizingMaskIntoConstraints = false
@@ -178,20 +195,20 @@ public class CardScanner: UIViewController {
 		labelCardCVV?.textColor = .white
 		
 		let labelHintTopY = viewY - 40
-		labelHintTop = UILabel(frame: CGRect(x: labelCardCVVX, y: labelCardCVVY, width: widht, height: 30))
+		labelHintTop = UILabel(frame: CGRect(x: labelCardCVVX, y: labelCardCVVY, width: width, height: 30))
 		view.addSubview(labelHintTop!)
 		labelHintTop?.translatesAutoresizingMaskIntoConstraints = false
 		labelHintTop?.leftAnchor.constraint(equalTo: view.leftAnchor, constant: 20).isActive = true
 		labelHintTop?.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20).isActive = true
 		labelHintTop?.topAnchor.constraint(equalTo: view.topAnchor, constant: labelHintTopY).isActive = true
-		labelHintTop?.font = UIFont.systemFont(ofSize: 13, weight: .regular)
+		labelHintTop?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
 		labelHintTop?.text = hintTopText
 		labelHintTop?.numberOfLines = 0
 		labelHintTop?.textAlignment = .center
 		labelHintTop?.textColor = .white
 		
-		let labelHintBottomY = bottomY + 30
-		labelHintBottom = UILabel(frame: CGRect(x: labelCardCVVX, y: labelCardCVVY, width: widht, height: 30))
+		let labelHintBottomY = bottomY + 50
+		labelHintBottom = UILabel(frame: CGRect(x: labelCardCVVX, y: labelCardCVVY, width: width, height: 3))
 		view.addSubview(labelHintBottom!)
 		labelHintBottom?.translatesAutoresizingMaskIntoConstraints = false
 		labelHintBottom?.leftAnchor.constraint(equalTo: view.leftAnchor, constant: 20).isActive = true
@@ -213,6 +230,7 @@ public class CardScanner: UIViewController {
 		buttonComplete?.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -90).isActive = true
 		buttonComplete?.heightAnchor.constraint(equalToConstant: 50).isActive = true
 		buttonComplete?.setTitle(buttonConfirmTitle, for: .normal)
+		buttonComplete?.titleLabel?.font = .boldSystemFont(ofSize: 18)
 		buttonComplete?.backgroundColor = buttonConfirmBackgroundColor
 		buttonComplete?.layer.cornerRadius = 10
 		buttonComplete?.layer.masksToBounds = true
@@ -228,6 +246,11 @@ public class CardScanner: UIViewController {
 		creditCardNumber = nil
 	}
 	
+	@objc func clearCardName() {
+		labelCardName?.text = ""
+		creditCardName = nil
+	}
+	
 	@objc func clearCardDate() {
 		labelCardDate?.text = ""
 		creditCardDate = nil
@@ -241,7 +264,7 @@ public class CardScanner: UIViewController {
 	// MARK: - Completed process
 	
 	@objc func scanCompleted() {
-		resultsHandler(creditCardNumber, creditCardDate, creditCardCVV)
+		resultsHandler(creditCardNumber, creditCardName, creditCardDate, creditCardCVV)
 		stop()
 		dismiss(animated: true, completion: nil)
 	}
@@ -260,9 +283,9 @@ public class CardScanner: UIViewController {
 	
 	private func extractPaymentCardData(frame: CVImageBuffer) {
 		let ciImage = CIImage(cvImageBuffer: frame)
-		let widht = UIScreen.main.bounds.width - (UIScreen.main.bounds.width * 0.2)
-		let height = widht - (widht * 0.45)
-		let viewX = (UIScreen.main.bounds.width / 2) - (widht / 2)
+		let width = UIScreen.main.bounds.width - (UIScreen.main.bounds.width * 0.2)
+		let height = width - (width * 0.45)
+		let viewX = (UIScreen.main.bounds.width / 2) - (width / 2)
 		let viewY = (UIScreen.main.bounds.height / 2) - (height / 2) - 100 + height
 		
 		let resizeFilter = CIFilter(name: "CILanczosScaleTransform")!
@@ -280,7 +303,7 @@ public class CardScanner: UIViewController {
 		resizeFilter.setValue(aspectRatio, forKey: kCIInputAspectRatioKey)
 		let outputImage = resizeFilter.outputImage
 		
-		let croppedImage = outputImage!.cropped(to: CGRect(x: viewX, y: viewY, width: widht, height: height))
+		let croppedImage = outputImage!.cropped(to: CGRect(x: viewX, y: viewY, width: width, height: height))
 		
 		let request = VNRecognizeTextRequest()
 		request.recognitionLevel = .accurate
@@ -302,24 +325,28 @@ public class CardScanner: UIViewController {
 			let trimmed = line.replacingOccurrences(of: " ", with: "")
 			
 			if creditCardNumber == nil &&
-				trimmed.count >= 15 &&
-				trimmed.count <= 16 &&
+				((trimmed.count == 16 && line.filter {$0 == " "}.count == 3) ||
+				 (trimmed.count == 15 && line.filter {$0 == " "}.count == 2)) && // AMEX
 				trimmed.isOnlyNumbers {
+//				trimmed.isValidCardNumber {
 				creditCardNumber = line
 				DispatchQueue.main.async {
 					self.labelCardNumber?.text = line
-					self.tapticFeedback()
+					self.hapticFeedback()
 				}
 				continue
 			}
 			
 			if creditCardCVV == nil &&
-				trimmed.count == 3 &&
+				!line.contains(" ") &&
+				(trimmed.count == 3 ||
+				 trimmed.count == 4) && // AMEX
+				!line.lowercased().contains("0800") &&
 				trimmed.isOnlyNumbers {
 				creditCardCVV = line
 				DispatchQueue.main.async {
 					self.labelCardCVV?.text = line
-					self.tapticFeedback()
+					self.hapticFeedback()
 				}
 				continue
 			}
@@ -332,31 +359,38 @@ public class CardScanner: UIViewController {
 				creditCardDate = line
 				DispatchQueue.main.async {
 					self.labelCardDate?.text = line
-					self.tapticFeedback()
+					self.hapticFeedback()
 				}
 				continue
 			}
 			
-			// Not used yet
+			let wordsToSkip = ["credit", "card", "visa", "master", "american", "express", "platinum", "gemalto", "valid", "signature"]
 			if creditCardName == nil &&
 				trimmed.count > 10 &&
 				line.contains(" ") &&
-				trimmed.isOnlyAlpha {
+				!wordsToSkip.contains { line.lowercased().contains($0) } &&
+				trimmed.isOnlyAlphaCaptalized {
 				
 				creditCardName = line
+				DispatchQueue.main.async {
+					self.labelCardName?.text = line
+					self.hapticFeedback()
+				}
 				continue
 			}
 		}
 	}
 	
-	private func tapticFeedback() {
-		UINotificationFeedbackGenerator().notificationOccurred(.success)
+	private func hapticFeedback() {
+//		UINotificationFeedbackGenerator().notificationOccurred(.success)
+		UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 	}
 }
 
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
 
-extension CardScanner: AVCaptureVideoDataOutputSampleBufferDelegate {
+@available(iOS 13.0, *)
+extension CardScannerViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
 	public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
 		guard let frame = CMSampleBufferGetImageBuffer(sampleBuffer) else {
 			debugPrint("unable to get image from sample buffer")
@@ -372,6 +406,10 @@ extension CardScanner: AVCaptureVideoDataOutputSampleBufferDelegate {
 private extension String {
 	var isOnlyAlpha: Bool {
 		return !isEmpty && range(of: "[^a-zA-Z]", options: .regularExpression) == nil
+	}
+	
+	var isOnlyAlphaCaptalized: Bool {
+		return !isEmpty && range(of: "[^A-Z]", options: .regularExpression) == nil
 	}
 	
 	var isOnlyNumbers: Bool {
@@ -398,6 +436,13 @@ private extension String {
 		return false
 	}
 }
+
+//private extension String {
+//	var isValidCardNumber: Bool {
+//		return true
+//	}
+//}
+
 
 // MARK: - Class PartialTransparentView
 
@@ -434,3 +479,4 @@ class PartialTransparentView: UIView {
 		}
 	}
 }
+#endif
